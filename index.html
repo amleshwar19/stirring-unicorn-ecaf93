@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AttendGuard — Attendance Calculator</title>
+<style>
+:root{
+  --bg:#f3f5fa; --card:#ffffff; --ink:#1b2436; --muted:#5d6b84; --line:#e2e8f2;
+  --primary:#2f5bff; --primary-d:#1f44d6; --danger:#d92d20; --danger-bg:#fef1f0;
+  --warn:#b54708; --warn-bg:#fffaeb; --ok:#067647; --ok-bg:#ecfdf3;
+  --radius:14px; --shadow:0 1px 3px rgba(16,24,40,.08),0 4px 14px rgba(16,24,40,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:0 18px}
+.topbar{background:linear-gradient(135deg,#1f44d6,#2f5bff 60%,#5b7cff);color:#fff;padding:26px 0 22px;margin-bottom:22px}
+.topbar h1{margin:0;font-size:26px;letter-spacing:.3px}
+.topbar p{margin:4px 0 0;opacity:.85;font-size:13.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
+.card h2{margin:0 0 14px;font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.field input,.field select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:14.5px;background:#fff;color:var(--ink)}
+.field input:focus,.field select:focus{outline:2px solid var(--primary);border-color:var(--primary)}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{flex:1;border:0;background:#fff;padding:9px 6px;font-size:14px;cursor:pointer;color:var(--muted)}
+.seg button.active{background:var(--primary);color:#fff;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px}
+.stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.stat .v{font-size:30px;font-weight:700;margin-top:4px}
+.stat .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.v.good{color:var(--ok)} .v.bad{color:var(--danger)} .v.warnv{color:var(--warn)}
+.banner{border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;border:2px solid var(--danger);background:var(--danger-bg)}
+.banner h2{margin:0 0 8px;color:var(--danger);font-size:18px}
+.banner ul{margin:8px 0 0;padding-left:20px}
+.banner li{margin:4px 0}
+.hidden{display:none!important}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:880px}
+th,td{text-align:left;padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);background:#f8fafd;position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+.pctin{width:76px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:14px}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.pill.safe{background:var(--ok-bg);color:var(--ok)}
+.pill.ok{background:#eff4ff;color:var(--primary-d)}
+.pill.impossible{background:var(--danger-bg);color:var(--danger)}
+.pill.na{background:#f2f4f7;color:var(--muted)}
+.rowdanger{background:#fffafa}
+.bar-row{display:grid;grid-template-columns:230px 1fr 64px;gap:10px;align-items:center;margin:9px 0;font-size:13.5px}
+.bar-track{position:relative;height:20px;background:#eef1f7;border-radius:6px}
+.bar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:linear-gradient(90deg,#2f5bff,#6a8bff)}
+.bar-fill.low{background:linear-gradient(90deg,#d92d20,#f97066)}
+.bar-fill.mid{background:linear-gradient(90deg,#dc6803,#fdb022)}
+.bar-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:#1b2436}
+.bar-mark span{position:absolute;top:-16px;left:-12px;font-size:10.5px;color:var(--muted);font-weight:600}
+.charts-grid{display:grid;grid-template-columns:1fr 300px;gap:20px}
+@media(max-width:820px){.charts-grid{grid-template-columns:1fr}.bar-row{grid-template-columns:150px 1fr 56px}}
+.donut-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-label{font-size:13px;color:var(--muted);margin-top:6px;text-align:center}
+.lv-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end;margin-bottom:14px}
+.btn{background:var(--primary);color:#fff;border:0;border-radius:9px;padding:10px 18px;font-size:14.5px;font-weight:600;cursor:pointer}
+.btn:hover{background:var(--primary-d)}
+.btn.danger{background:#fff;color:var(--danger);border:1px solid var(--danger);padding:5px 12px;font-size:13px}
+.lv-item{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:14px}
+.lv-item .grow{flex:1}
+.badge{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px}
+.badge.OD{background:#eff4ff;color:var(--primary-d)}
+.badge.Medical{background:var(--warn-bg);color:var(--warn)}
+.badge.Absent{background:var(--danger-bg);color:var(--danger)}
+.hint{font-size:13px;color:var(--muted)}
+#chatFab{position:fixed;right:22px;bottom:22px;width:60px;height:60px;border-radius:50%;background:var(--primary);border:0;box-shadow:0 6px 20px rgba(47,91,255,.45);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:50}
+#chatFab:hover{background:var(--primary-d)}
+#chatPanel{position:fixed;right:22px;bottom:94px;width:380px;max-width:calc(100vw - 32px);height:520px;max-height:calc(100vh - 130px);background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 40px rgba(16,24,40,.22);display:flex;flex-direction:column;z-index:50;overflow:hidden}
+#chatPanel .chead{background:linear-gradient(135deg,#1f44d6,#2f5bff);color:#fff;padding:14px 16px}
+#chatPanel .chead h3{margin:0;font-size:15.5px}
+#chatPanel .chead p{margin:2px 0 0;font-size:12.5px;opacity:.85}
+#chatMsgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f8fafd}
+.msg{max-width:88%;padding:9px 13px;border-radius:13px;font-size:13.8px;white-space:pre-wrap;word-wrap:break-word}
+.msg.bot{background:#fff;border:1px solid var(--line);align-self:flex-start;border-top-left-radius:4px}
+.msg.user{background:var(--primary);color:#fff;align-self:flex-end;border-top-right-radius:4px}
+.cinput{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line);background:#fff}
+.cinput input{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px}
+.foot{text-align:center;color:var(--muted);font-size:12.5px;padding:10px 0 34px}
+#selftest{max-width:860px;margin:30px auto;padding:0 18px}
+.tpass{color:var(--ok);font-weight:600}.tfail{color:var(--danger);font-weight:600}
+.st-row{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;background:#fff;font-size:14px}
+</style>
+</head>
+<body>
+<div id="app">
+<header class="topbar"><div class="wrap">
+<h1>AttendGuard</h1>
+<p>SRM Institute of Science and Technology, Tiruchirappalli &middot; Odd Semester 2026&ndash;27 &middot; Attendance calculator</p>
+</div></header>
+<main class="wrap">
+
+<section class="card" id="setupCard">
+<h2>Setup</h2>
+<div class="grid">
+  <div class="field"><label for="secSel">Class section</label><select id="secSel"></select></div>
+  <div class="field hidden" id="subOptField"><label>Sub-section</label><div class="seg" id="subOptSeg"></div></div>
+  <div class="field"><label for="semStart">Semester start</label><input type="date" id="semStart" value="2026-07-13"></div>
+  <div class="field"><label for="planEnd">Planning end date</label><input type="date" id="planEnd" value="2026-11-27"></div>
+  <div class="field"><label>Today (auto)</label><input type="text" id="todayTxt" readonly></div>
+  <div class="field"><label for="dangerIn">Danger threshold %</label><input type="number" id="dangerIn" min="0" max="100" value="75"></div>
+  <div class="field"><label for="targetIn">Excellence target %</label><input type="number" id="targetIn" min="0" max="100" value="90"></div>
+</div>
+<p class="hint" style="margin:12px 0 0">Enter your <b>current attendance %</b> per subject below. Held classes are counted from the timetable between semester start and today; remaining classes between tomorrow and your planning end date.</p>
+</section>
+
+<section class="stats" id="statsRow">
+  <div class="stat"><div class="k">Overall attendance</div><div class="v" id="statOverall">&mdash;</div><div class="s" id="statOverallS"></div></div>
+  <div class="stat"><div class="k">Remaining classes</div><div class="v" id="statRemaining">&mdash;</div><div class="s">across all subjects</div></div>
+  <div class="stat"><div class="k">Below danger zone</div><div class="v" id="statBelow">&mdash;</div><div class="s">subjects under threshold</div></div>
+  <div class="stat"><div class="k">Irreversible</div><div class="v" id="statIrrev">&mdash;</div><div class="s">cannot recover even at 100%</div></div>
+</section>
+
+<div id="detentionBanner" class="banner hidden"></div>
+
+<section class="card">
+<h2>Subject-wise calculator</h2>
+<div class="tablewrap"><table>
+<thead><tr>
+<th>Subject</th><th>Code</th><th>Slot</th><th>/Week</th><th>Current %</th>
+<th>Held</th><th>Attended</th><th>Remaining</th><th id="needDH">Need (&ge;75%)</th><th id="needTH">Need (&ge;90%)</th>
+</tr></thead>
+<tbody id="subjBody"></tbody>
+</table></div>
+</section>
+
+<section class="card">
+<h2>Attendance health</h2>
+<div class="charts-grid">
+<div id="subjectBars"></div>
+<div class="donut-wrap" id="donutWrap"></div>
+</div>
+<h2 style="margin-top:22px">Remaining classes per subject</h2>
+<div id="remainBars"></div>
+</section>
+
+<section class="card">
+<h2>OD / Leave simulator</h2>
+<p class="hint" style="margin-top:0">Add leave ranges and every number on this page recalculates instantly.
+<b>OD</b> = counted present (banked). <b>Medical</b> = those classes vanish from your totals.
+<b>Absent</b> = missed, still counted in the denominator.</p>
+<div class="lv-form">
+  <div class="field"><label for="lvFrom">From</label><input type="date" id="lvFrom"></div>
+  <div class="field"><label for="lvTo">To</label><input type="date" id="lvTo"></div>
+  <div class="field"><label for="lvType">Type</label><select id="lvType"><option>OD</option><option>Medical</option><option>Absent</option></select></div>
+  <div class="field"><button class="btn" id="lvAdd">Add leave</button></div>
+</div>
+<div id="lvList"></div>
+</section>
+
+<p class="foot">AttendGuard runs fully offline in your browser. Your inputs are stored only on this device (localStorage).</p>
+</main>
+</div>
+
+<button id="chatFab" aria-label="Open Attendance Advisor" title="Attendance Advisor">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+</button>
+<div id="chatPanel" class="hidden">
+  <div class="chead"><h3>Attendance Advisor</h3><p>Ask about leaves, bunks, and recovery plans</p></div>
+  <div id="chatMsgs"></div>
+  <div class="cinput"><input id="chatInput" type="text" placeholder='Try: "If I take a 3-day sick leave starting tomorrow, will my Chemistry drop below 75%?"' autocomplete="off"><button class="btn" id="chatSend">Send</button></div>
+</div>
+<div id="selftest" class="hidden"></div>
+
+<script>
+'use strict';
+const TIMETABLES = {"sections":[{"id":"II-BME","label":"II Year BME, III Semester","subjects":[{"code":"21MAB201T","name":"Transforms and Boundary Value Problems","slot":"A"},{"code":"21BMC202T","name":"Biomedical Signals and Systems","slot":"B"},{"code":"21BMC203J","name":"Electric and Electronic Circuits","slot":"C"},{"code":"21BMC204J","name":"Digital Logic for Medical Systems","slot":"D"},{"code":"21PYS202T","name":"Medical Physics","slot":"E"},{"code":"21LEM201T","name":"Professional Ethics","slot":"F"},{"code":"21LEM202T","name":"Universal Human Values-II","slot":"G"},{"code":"21PDM201L","name":"Verbal Reasoning","slot":"H"},{"code":"21PDH201T","name":"Social Engineering","slot":"I"}],"week":{"Friday":["F","A","C","D",null,null,null,"G","G"],"Monday":["E","C","I","I",null,"D","D",null,null],"Thursday":["A","E","B","D",null,null,null,"D","D"],"Tuesday":["C","E","B","A",null,"H","H",null,null],"Wednesday":["B","D","A",null,null,"H","G",null,null]}},{"id":"II-ECE-DS-A","label":"II Year ECE-DS A, III Semester","subjects":[{"code":"21MAB201T","name":"Transforms and Boundary Value Problems","slot":"A"},{"code":"21ECC201T","name":"Solid State Devices","slot":"B"},{"code":"21CSS201T","name":"Computer Organization and Architecture","slot":"C"},{"code":"21ECC203T","name":"Digital Logic Design","slot":"D"},{"code":"21ECC205T","name":"Electromagnetic Theory and Interference","slot":"E"},{"code":"21LEM201T","name":"Professional Ethics","slot":"F"},{"code":"21LEM202T","name":"Universal Human Values-II","slot":"G"},{"code":"21PDM201L","name":"Verbal Reasoning","slot":"H"},{"code":"21PDH209T","name":"Social Engineering","slot":"I"},{"code":"21ECC211L","name":"Devices and Digital IC Laboratory","slot":"LAB"}],"week":{"Friday":["D","B","E","C",null,null,null,null,null],"Monday":["E","A","I","I",null,"G","G","LAB","LAB"],"Thursday":["B","C","A","F",null,"LAB","LAB",null,null],"Tuesday":["C","A","E","D",null,"G",null,"H","H"],"Wednesday":["A","B","C","D",null,null,"H",null,null]}},{"id":"II-ECE-DS-B","label":"II Year ECE-DS B, III Semester","subjects":[{"code":"21MAB201T","name":"Transforms and Boundary Value Problems","slot":"A"},{"code":"21ECC201T","name":"Solid State Devices","slot":"B"},{"code":"21CSS201T","name":"Computer Organization and Architecture","slot":"C"},{"code":"21ECC203T","name":"Digital Logic Design","slot":"D"},{"code":"21ECC205T","name":"Electromagnetic Theory and Interference","slot":"E"},{"code":"21LEM201T","name":"Professional Ethics","slot":"F"},{"code":"21LEM202T","name":"Universal Human Values-II","slot":"G"},{"code":"21PDM201L","name":"Verbal Reasoning","slot":"H"},{"code":"21PDH209T","name":"Social Engineering","slot":"I"},{"code":"21ECC211L","name":"Devices and Digital IC Laboratory","slot":"LAB"}],"week":{"Friday":["H",null,null,null,null,"F","A","B","C"],"Monday":[null,null,"LAB","LAB",null,"D","B","C","I"],"Thursday":["G","G","H","H",null,"A","C","B","E"],"Tuesday":["LAB","LAB",null,null,null,"C","D","E","A"],"Wednesday":["G",null,null,null,null,"I","E","A","D"]}},{"id":"III-BME","label":"III Year BME, V Semester","subjects":[{"code":"21MAB301T","name":"Probability and Statistics","slot":"A"},{"code":"21BMC302J","name":"Microcontrollers and Its Application in Medicine","slot":"B"},{"code":"21BMC301J","name":"Biomedical Signal Processing","slot":"C"},{"code":"21BME266T","name":"Biometrics","slot":"D"},{"code":"21ECO103T","name":"Modern wireless communication system","slot":"E"},{"code":"21BMC303T","name":"Principles of Medical Imaging","slot":"F"},{"code":"21PDM301L","name":"Analytical and Logical Thinking Skills","slot":"G"},{"code":"21LEM301T","name":"Indian Art Form","slot":"H"},{"code":"21GNP301L","name":"Community Connect","slot":"I"}],"week":{"Friday":["I",null,null,null,null,"F","A","D","E"],"Monday":["G","G","B","B",null,"E","B","F","H"],"Thursday":[null,null,null,"I",null,"A","C","E","B"],"Tuesday":["C","C","G",null,null,"C","D","A","B"],"Wednesday":[null,null,null,null,null,"C","A","F","D"]}},{"id":"III-ECE-A","label":"III Year ECE A, V Semester","subjects":[{"code":"21MAB302T","name":"Discrete Mathematics","slot":"A"},{"code":"21ECC301P","name":"Microprocessor, Microcontroller, and Interfacing Techniques","slot":"B"},{"code":"21ECC303T","name":"VLSI Design and Technology","slot":"C"},{"code":"21ECE468T","name":"System and Network on Chip","slot":"D"},{"code":"21CSO355T","name":"Machine learning for all","slot":"E"},{"code":"21GNP301L","name":"Community connect","slot":"F"},{"code":"21PDM301L","name":"Analytical and logical thinking skills","slot":"G"},{"code":"21LEM301T","name":"Indian Art Form","slot":"H"},{"code":"21ECC311L","name":"VLSI Design/ Microprocessor Laboratory","slot":"LAB"}],"week":{"Friday":["D","A","E","C",null,"LAB","LAB",null,null],"Monday":["E","B","B","A",null,"G","G",null,null],"Thursday":["A","E","C","F",null,null,null,null,null],"Tuesday":["H","D","B","B",null,null,"G",null,null],"Wednesday":["C","A","D","F",null,null,null,"LAB","LAB"]}},{"id":"III-ECE-B","label":"III Year ECE B, V Semester","subjects":[{"code":"21MAB302T","name":"Discrete Mathematics","slot":"A"},{"code":"21ECC301P","name":"Microprocessor, Microcontroller, and Interfacing Techniques","slot":"B"},{"code":"21ECC303T","name":"VLSI Design and Technology","slot":"C"},{"code":"21ECE468T","name":"System and Network on Chip","slot":"D"},{"code":"21CSO355T","name":"Machine learning for all","slot":"E"},{"code":"21GNP301L","name":"Community connect","slot":"F"},{"code":"21PDM301L","name":"Analytical and logical thinking skills","slot":"G"},{"code":"21LEM301T","name":"Indian Art Form","slot":"H"},{"code":"21ECC311L","name":"VLSI Design/ Microprocessor Laboratory","slot":"LAB"}],"week":{"Friday":[null,null,null,null,null,"C","A","E","D"],"Monday":["LAB","LAB",null,null,null,"E","B","A","D"],"Thursday":["LAB","LAB",null,null,null,"A","C","E","F"],"Tuesday":["G","G",null,null,null,"F","B","D","C"],"Wednesday":["G",null,null,null,null,"B","B","A","H"]}},{"id":"III-ECE-DS","label":"III Year ECE-DS, V Semester","subjects":[{"code":"21MAB302T","name":"Discrete Mathematics","slot":"A"},{"code":"21ECC301P","name":"Microprocessor, Microcontroller, and Interfacing Techniques","slot":"B"},{"code":"21ECC303T","name":"VLSI Design and Technology","slot":"C"},{"code":"21CSO355T","name":"Machine learning for all","slot":"D"},{"code":"21ECE371T","name":"Database Design and Management","slot":"E"},{"code":"21GNP301L","name":"Community connect","slot":"F"},{"code":"21PDM301L","name":"Analytical and logical thinking skills","slot":"G"},{"code":"21LEM301T","name":"Indian Art Form","slot":"H"},{"code":"21ECC311L","name":"VLSI Design/ Microprocessor Laboratory","slot":"LAB"}],"week":{"Friday":["D","A","E","B",null,"G",null,"LAB","LAB"],"Monday":["E","B","C","A",null,null,null,null,null],"Thursday":["A","D","E","F",null,null,null,null,null],"Tuesday":["C","B","D","F",null,"LAB","LAB",null,null],"Wednesday":["H","B","A","C",null,null,null,"G","G"]}},{"id":"IV-ECE-A","label":"IV Year ECE A, VII Semester","subjects":[{"code":"21GNH401T","name":"Behavioural Psychology","slot":"A"},{"code":"21ECC401T","name":"Wireless Communication and Antenna Systems","slot":"B"},{"code":"21ECC402P","name":"Computer Communication and Network Security","slot":"C"},{"code":"21ECE461T","name":"Semiconductor Memory Design","slot":"D"},{"code":"21ECE463T","name":"Scripting Language for Electronic Design Automation","slot":"E"},{"code":"21CSO355T","name":"Machine learning for all","slot":"F"},{"code":"21ECC402P","name":"Computer Communication and Network Security","slot":"LAB"}],"week":{"Friday":["C","A","D","E",null,null,null,null,null],"Monday":["C",null,"A","D",null,null,null,null,null],"Thursday":["F","A","E","B",null,null,null,null,null],"Tuesday":["C","D","B","F",null,null,null,null,null],"Wednesday":["B","LAB","E","F",null,null,null,null,null]}},{"id":"IV-ECE-B","label":"IV Year ECE B, VII Semester","subjects":[{"code":"21GNH401T","name":"Behavioural Psychology","slot":"A"},{"code":"21ECC401T","name":"Wireless Communication and Antenna Systems","slot":"B"},{"code":"21ECC402P","name":"Computer Communication and Network Security","slot":"C"},{"code":"21ECE461T","name":"Semiconductor Memory Design","slot":"D"},{"code":"21ECE463T","name":"Scripting Language for Electronic Design Automation","slot":"E"},{"code":"21CSO355T","name":"Machine learning for all","slot":"F"},{"code":"21ECC402P","name":"Computer Communication and Network Security","slot":"LAB"}],"week":{"Friday":["E","D","F",null,null,null,null,null,null],"Monday":["C","A","E","F",null,null,null,null,null],"Thursday":["D","B","LAB","A",null,null,null,null,null],"Tuesday":["C","E","F","B",null,null,null,null,null],"Wednesday":["C","D","A","B",null,null,null,null,null]}},{"id":"I-ECE-A","label":"I Year ECE A, I Semester","subjects":[{"code":"21GNH101J","name":"Philosophy of Engineering","slot":"E"},{"code":"21MAB102T","name":"Advanced Calculus and Complex Analysis","slot":"A"},{"code":"21CYB101J","name":"Chemistry","slot":"B"},{"code":"21BTB102J","name":"Electronic System and PCB Design","slot":"C"},{"code":"21CSS101J","name":"Programming for Problem Solving","slot":"D"},{"code":"21MES101L","name":"Basic Civil and Mechanical Workshop","slot":"Workshop"},{"code":"21PDM102L","name":"General Aptitude","slot":"CDC"},{"code":"21GNM102L","name":"NSS","slot":"NSS"},{"code":"21BTB103T","name":"Biology","slot":"F"},{"code":"21LEH104T","name":"German","slot":"German"}],"week":{"Friday":["D","A","C","B",null,"F","German","German","German"],"Monday":["E","E","B","A",null,"B","B","F","CDC"],"Thursday":[null,"German","German","A",null,"CDC","CDC","NSS",null],"Tuesday":["C","B","A","D",null,"Workshop","Workshop","Workshop",null],"Wednesday":["B","E","D",null,null,"D","D","C","C"]}},{"id":"I-ECE-B-EEE","label":"I Year ECE B & EEE, I Semester","subjects":[{"code":"21LEH104T","name":"German","slot":"German"},{"code":"21GNH101J","name":"Philosophy of Engineering","slot":"E"},{"code":"21MAB102T","name":"Advanced Calculus and Complex Analysis","slot":"A"},{"code":"21CYB101J","name":"Chemistry","slot":"B"},{"code":"21BTB102J","name":"Electronic System and PCB Design (for ECE)","slot":"F"},{"code":"21CSS101J","name":"Programming for Problem Solving","slot":"D"},{"code":"21MES101L","name":"Basic Civil and Mechanical Workshop","slot":"Workshop"},{"code":"21PDM102L","name":"General Aptitude","slot":"CDC"},{"code":"21GNM102L","name":"NSS","slot":"NSS"},{"code":"21BTB103T","name":"Biology","slot":"C"},{"code":"21EEC101J","name":"Electrical Circuits (for EEE)","slot":"G"},{"code":"21BTB102J / 21EEC101J","name":"Electronic System and PCB Design (ECE-B) / Electrical Circuits (EEE) - section-split class","slot":"F/G"}],"week":{"Friday":["F/G","F/G",null,"German","German","German",null,"B","A"],"Monday":["CDC","F/G","B","B",null,"E","E","B","A"],"Thursday":["NSS","NSS","C","A",null,"D","German","German","German"],"Tuesday":["Workshop","Workshop","Workshop","Workshop",null,"C","B","A","D"],"Wednesday":["F/G","D","CDC","CDC","D",null,"B","E","D"]}},{"id":"I-ECE-DS","label":"I Year ECE Data Science, I Semester","subjects":[{"code":"21LEH104T","name":"German","slot":"German"},{"code":"21GNH101J","name":"Philosophy of Engineering","slot":"E"},{"code":"21MAB102T","name":"Advanced Calculus and Complex Analysis","slot":"A"},{"code":"21CYB101J","name":"Chemistry","slot":"B"},{"code":"21BTB102J","name":"Electronic System and PCB Design","slot":"C"},{"code":"21CSS101J","name":"Programming for Problem Solving","slot":"D"},{"code":"21MES101L","name":"Basic Civil and Mechanical Workshop","slot":"Workshop"},{"code":"21PDM102L","name":"General Aptitude","slot":"CDC"},{"code":"21GNM102L","name":"NSS","slot":"NSS"},{"code":"21BTB103T","name":"Biology","slot":"F"}],"week":{"Friday":[null,"German","German",null,null,"Workshop","Workshop","Workshop","Workshop"],"Monday":["F","CDC","C","C",null,"E","E","B","A"],"Thursday":["F","A","D",null,"German","German",null,"C","B"],"Tuesday":["B","B","NSS","NSS",null,"C","B","A","D"],"Wednesday":["CDC","CDC","A",null,"D","D","B","E","D"]}},{"id":"I-BIOTECH-B-BME","label":"I Year Biotech B & Biomedical Engineering, I Semester","subjects":[{"code":"21LEH105T","name":"Japanese","slot":"Japanese"},{"code":"21GNH101J","name":"Philosophy of Engineering","slot":"E"},{"code":"21MAB102T","name":"Advanced Calculus and Complex Analysis","slot":"A"},{"code":"21CYB101J","name":"Chemistry","slot":"B"},{"code":"21CSS101J","name":"Programming for Problem Solving","slot":"D"},{"code":"21BTC105T","name":"Cell biology (for Biotech)","slot":"C"},{"code":"21MES101L","name":"Basic Civil and Mechanical Workshop","slot":"Workshop"},{"code":"21PDM102L","name":"General Aptitude","slot":"CDC"},{"code":"21GNM101L","name":"Physical and Mental Health using Yoga","slot":"Yoga"},{"code":"21BTC101T","name":"Biochemistry (for Biotech)","slot":"F"},{"code":"21BTB104T","name":"Biology: Human physiology and anatomy (only for Biomedical Engineering)","slot":"G"},{"code":"21BTC101T / 21BTB104T","name":"Biochemistry (Biotech-B) / Human physiology and anatomy (Biomed) - section-split class","slot":"F/G"},{"code":"21BTC105T / 21BTB104T","name":"Cell biology (Biotech-B) / Human physiology and anatomy (Biomed) - section-split class","slot":"C/G"}],"week":{"Friday":["F","CDC","A","Japanese","Japanese","Japanese",null,"D","D"],"Monday":["C","Yoga","Yoga","F/G",null,"E","E","A","B"],"Thursday":["B","B","A","C/G",null,"B","Japanese","Japanese","Japanese"],"Tuesday":["CDC","CDC","C","F",null,null,"B","A","D"],"Wednesday":["Workshop","Workshop","Workshop","Workshop",null,"D","B","E","D"]}}]};
+
+/* ============================================================
+   PURE LOGIC — zero DOM access. Exposed as window.__att.
+   ============================================================ */
+var DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var WEEKDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+
+function parseDate(s){
+  if(!s) return null;
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s).trim());
+  if(!m) return null;
+  var d = new Date(+m[1], +m[2]-1, +m[3]);
+  if(d.getFullYear()!==+m[1] || d.getMonth()!==+m[2]-1 || d.getDate()!==+m[3]) return null;
+  return d;
+}
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fmtDate(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function fmtDateShort(d){
+  var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return DAY_NAMES[d.getDay()].slice(0,3)+', '+d.getDate()+' '+mon[d.getMonth()];
+}
+function addDays(d,n){ var x=new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
+function addDaysStr(s,n){ var d=parseDate(s); return d?fmtDate(addDays(d,n)):s; }
+function isClassDay(d){ var g=d.getDay(); return g>=1 && g<=5; }
+function todayStr(){ return fmtDate(new Date()); }
+
+/* Split-section cells: first letter belongs to first sub-option. */
+var SPLIT_CELLS = {
+  'I-ECE-B-EEE': {'F/G':['F','G']},
+  'I-BIOTECH-B-BME': {'F/G':['F','G'],'C/G':['C','G']}
+};
+function resolveCell(cell, sectionId, subOpt){
+  if(cell==null) return null;
+  var m = SPLIT_CELLS[sectionId];
+  if(m && Object.prototype.hasOwnProperty.call(m, cell)){
+    var opts = m[cell];
+    return opts[subOpt===1?1:0];
+  }
+  return cell;
+}
+function hiddenSlots(sectionId, subOpt){
+  if(sectionId==='I-ECE-B-EEE') return subOpt===1 ? ['F','F/G'] : ['G','F/G'];
+  if(sectionId==='I-BIOTECH-B-BME') return subOpt===1 ? ['F','C','F/G','C/G'] : ['G','F/G','C/G'];
+  return [];
+}
+var SUBOPT_LABELS = {
+  'I-ECE-B-EEE': ['ECE-B','EEE'],
+  'I-BIOTECH-B-BME': ['Biotech-B','Biomed']
+};
+function getSection(id){
+  var secs = (typeof TIMETABLES!=='undefined' && TIMETABLES.sections) || [];
+  for(var i=0;i<secs.length;i++) if(secs[i].id===id) return secs[i];
+  return null;
+}
+function visibleSubjects(section, subOpt){
+  var hide = {};
+  hiddenSlots(section.id, subOpt).forEach(function(s){ hide[s]=1; });
+  return section.subjects.filter(function(su){ return !hide[su.slot]; });
+}
+function classesPerWeek(section, slot, subOpt){
+  var n=0;
+  WEEKDAYS.forEach(function(day){
+    var arr = section.week[day]||[];
+    for(var i=0;i<arr.length;i++) if(resolveCell(arr[i], section.id, subOpt)===slot) n++;
+  });
+  return n;
+}
+/* Count periods of a slot on Mon-Fri dates in [fromStr, toStr] (inclusive). */
+function countRange(section, slot, fromStr, toStr, subOpt){
+  var a=parseDate(fromStr), b=parseDate(toStr);
+  if(!a||!b||a>b) return 0;
+  var n=0;
+  for(var d=new Date(a.getTime()); d<=b; d=addDays(d,1)){
+    if(!isClassDay(d)) continue;
+    var arr = section.week[DAY_NAMES[d.getDay()]]||[];
+    for(var i=0;i<arr.length;i++) if(resolveCell(arr[i], section.id, subOpt)===slot) n++;
+  }
+  return n;
+}
+/* Periods of a slot that fall on leave-days of a given type inside [fromStr,toStr]. */
+function leavePeriodsOn(section, slot, leaves, type, fromStr, toStr, subOpt){
+  var a=parseDate(fromStr), b=parseDate(toStr);
+  if(!a||!b||a>b||!leaves||!leaves.length) return 0;
+  var n=0;
+  for(var d=new Date(a.getTime()); d<=b; d=addDays(d,1)){
+    if(!isClassDay(d)) continue;
+    var ds=fmtDate(d), hit=false;
+    for(var j=0;j<leaves.length;j++){
+      var L=leaves[j];
+      if(L.type===type && L.from<=ds && ds<=L.to){ hit=true; break; }
+    }
+    if(!hit) continue;
+    var arr = section.week[DAY_NAMES[d.getDay()]]||[];
+    for(var i=0;i<arr.length;i++) if(resolveCell(arr[i], section.id, subOpt)===slot) n++;
+  }
+  return n;
+}
+/* Minimum future classes to attend so that attended/total >= targetPct.
+   need<=0 -> safe; need>remaining -> impossible. */
+function required(targetPct, attended, total, remaining){
+  if(!(total>0)) return {need:0, status:'nodata'};
+  var need = Math.ceil(targetPct/100*total - attended - 1e-9);
+  if(need<=0) return {need:0, status:'safe'};
+  if(need>remaining) return {need:need, status:'impossible'};
+  return {need:need, status:'ok'};
+}
+
+function calcSubject(section, slot, o){
+  var sub=null;
+  for(var i=0;i<section.subjects.length;i++) if(section.subjects[i].slot===slot){ sub=section.subjects[i]; break; }
+  var perWeek = classesPerWeek(section, slot, o.subOpt);
+  var leaves = o.leaves||[];
+  var heldRaw = countRange(section, slot, o.semStart, o.today, o.subOpt);
+  var medPast = leavePeriodsOn(section, slot, leaves, 'Medical', o.semStart, o.today, o.subOpt);
+  var held = Math.max(0, heldRaw - medPast);
+  var hasPct = o.pct!==null && o.pct!==undefined && o.pct!=='' && !isNaN(+o.pct);
+  var pct = hasPct ? Math.max(0, Math.min(100, +o.pct)) : null;
+  var attendedBase = pct===null ? 0 : Math.round(pct/100*held);
+  var fromT = addDaysStr(o.today,1);
+  var remRaw = countRange(section, slot, fromT, o.planEnd, o.subOpt);
+  var medFut = leavePeriodsOn(section, slot, leaves, 'Medical', fromT, o.planEnd, o.subOpt);
+  var odFut = leavePeriodsOn(section, slot, leaves, 'OD', fromT, o.planEnd, o.subOpt);
+  var remaining = Math.max(0, remRaw - medFut - odFut);
+  var heldEff = held + odFut;          /* OD days banked as held+attended */
+  var attEff = attendedBase + odFut;
+  var total = heldEff + remaining;
+  var curPct = (heldEff>0 && pct!==null) ? attEff/heldEff*100 : null;
+  var rD={need:0,status:'nodata'}, rT={need:0,status:'nodata'};
+  if(pct!==null){
+    rD = required(o.danger, attEff, total, remaining);
+    rT = required(o.target, attEff, total, remaining);
+  }
+  return {
+    slot:slot, code:sub?sub.code:'', name:sub?sub.name:String(slot),
+    perWeek:perWeek, held:heldEff, attended:attEff, remaining:remaining, total:total,
+    curPct:curPct, hasPct:!!hasPct, pct:pct, rD:rD, rT:rT,
+    projFinal:(total>0 && pct!==null) ? (attEff+remaining)/total*100 : null
+  };
+}
+
+function calcAll(sectionId, o){
+  var section = getSection(sectionId);
+  if(!section) return null;
+  var rows = visibleSubjects(section, o.subOpt).map(function(su){
+    return calcSubject(section, su.slot, {
+      pct: o.pctBySlot ? o.pctBySlot[su.slot] : null,
+      semStart:o.semStart, today:o.today, planEnd:o.planEnd,
+      danger:o.danger, target:o.target, subOpt:o.subOpt, leaves:o.leaves||[]
+    });
+  });
+  var h=0,a=0,r=0,entered=0;
+  rows.forEach(function(x){ if(x.hasPct){ h+=x.held; a+=x.attended; entered++; } r+=x.remaining; });
+  return {
+    section:section, rows:rows,
+    summary:{
+      overall: h>0 ? a/h*100 : null,
+      held:h, attended:a, entered:entered,
+      totalRemaining:r,
+      belowDanger: rows.filter(function(x){ return x.hasPct && x.curPct!==null && x.curPct<o.danger; }).length,
+      irreversible: rows.filter(function(x){ return x.rD.status==='impossible'; }).length
+    }
+  };
+}
+/* Full recalculation with one hypothetical extra leave appended. */
+function projectLeave(sectionId, o, newLeave){
+  var o2 = {};
+  for(var k in o) if(Object.prototype.hasOwnProperty.call(o,k)) o2[k]=o[k];
+  o2.leaves = (o.leaves||[]).concat([newLeave]);
+  return calcAll(sectionId, o2);
+}
+/* Classes of a slot the student would MISS over [fromStr,toStr] if absent
+   (only future class-days up to planEnd count). */
+function missedIfAbsent(section, slot, fromStr, toStr, o){
+  var a=parseDate(fromStr), b=parseDate(toStr);
+  var t=parseDate(o.today), pe=parseDate(o.planEnd);
+  if(!a||!b||a>b||!t) return 0;
+  if(a<=t) a=addDays(t,1);
+  if(pe && b>pe) b=pe;
+  if(a>b) return 0;
+  return countRange(section, slot, fmtDate(a), fmtDate(b), o.subOpt);
+}
+
+/* ============================================================
+   ATTENDANCE ADVISOR — rule-based chatbot over live state.
+   ============================================================ */
+function normS(s){ return String(s||'').toLowerCase(); }
+
+function findSubject(section, query, subOpt){
+  var vis = visibleSubjects(section, subOpt);
+  var t = normS(query);
+  var mSlot = t.match(/slot\s+([a-z0-9]+)/);
+  if(mSlot){
+    for(var i=0;i<vis.length;i++) if(normS(vis[i].slot)===mSlot[1]) return vis[i];
+  }
+  var i, s;
+  for(i=0;i<vis.length;i++){ s=vis[i]; if(s.code && t.indexOf(normS(s.code))!==-1) return s; }
+  for(i=0;i<vis.length;i++){ s=vis[i]; if(t.indexOf(normS(s.name))!==-1) return s; }
+  var best=null, bestScore=0;
+  for(i=0;i<vis.length;i++){
+    s=vis[i];
+    var words = normS(s.name).split(/[^a-z0-9]+/).filter(function(w){ return w.length>2; });
+    var sc=0;
+    for(var w=0;w<words.length;w++) if(t.indexOf(words[w])!==-1) sc += words[w].length>5?2:1;
+    if(sc>bestScore){ bestScore=sc; best=s; }
+  }
+  return bestScore>0 ? best : null;
+}
+
+var MONTH_IDX = {january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11,
+  jan:0,feb:1,mar:2,apr:3,jun:5,jul:6,aug:7,sep:8,sept:8,oct:9,nov:10,dec:11};
+var WD_IDX = {sunday:0,monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6};
+
+/* Parse "tomorrow", "next Monday", "2026-10-05", "Oct 5" -> YYYY-MM-DD or null. */
+function parseDateExpr(t, refStr){
+  var ref = parseDate(refStr) || new Date();
+  t = ' '+normS(t)+' ';
+  if(/[^a-z]today[^a-z]/.test(t)) return fmtDate(ref);
+  if(/day after tomorrow/.test(t)) return fmtDate(addDays(ref,2));
+  if(/[^a-z]tomorrow[^a-z]/.test(t)) return fmtDate(addDays(ref,1));
+  var mNext = t.match(/next\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)/);
+  var mDay = t.match(/[^a-z](sunday|monday|tuesday|wednesday|thursday|friday|saturday)[^a-z]/);
+  if(mNext || mDay){
+    var want = WD_IDX[(mNext||mDay)[1]];
+    var d;
+    if(mNext){
+      /* "next <weekday>" = that weekday in the coming calendar week */
+      d = addDays(ref,1);
+      var g=0; while(d.getDay()!==1 && g++<8) d=addDays(d,1); /* next Monday */
+      g=0; while(d.getDay()!==want && g++<8) d=addDays(d,1);
+    } else {
+      /* bare weekday = upcoming occurrence, strictly after today */
+      d=null;
+      for(var k=1;k<=7;k++){ var c=addDays(ref,k); if(c.getDay()===want){ d=c; break; } }
+    }
+    return d?fmtDate(d):null;
+  }
+  var mIso = t.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(mIso && parseDate(mIso[1]+'-'+mIso[2]+'-'+mIso[3])) return mIso[1]+'-'+mIso[2]+'-'+mIso[3];
+  var mNames = Object.keys(MONTH_IDX).join('|');
+  var m1 = t.match(new RegExp('[^a-z]('+mNames+')\\s+(\\d{1,2})(?:st|nd|rd|th)?[^a-z]'));
+  var m2 = t.match(/[^a-z](\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december)[^a-z]/);
+  var mm=null, dd=null;
+  if(m1){ mm=MONTH_IDX[m1[1]]; dd=+m1[2]; }
+  else if(m2){ mm=MONTH_IDX[m2[2]]; dd=+m2[1]; }
+  if(mm!==null){
+    var y=ref.getFullYear(), cand=new Date(y,mm,dd);
+    if(cand.getMonth()!==mm) return null;
+    if(fmtDate(cand)<fmtDate(ref)) cand=new Date(y+1,mm,dd);
+    return fmtDate(cand);
+  }
+  return null;
+}
+
+function parseQuery(q, ctx){
+  var t = normS(q);
+  var section = ctx.section;
+  var subj = findSubject(section, q, ctx.subOpt);
+  var thM = t.match(/(\d{2,3})\s*%/);
+  var threshold = thM ? +thM[1] : ctx.danger;
+  var isOD = /\bod\b|on[\s-]?duty/.test(t);
+  var dayM = t.match(/(\d+)\s*-?\s*days?/);
+
+  /* A. multi-day leave simulation: "3-day sick leave starting tomorrow" */
+  if(dayM && /(sick|medical|leave|absen|od|on[\s-]?duty|\btake\b)/.test(t)){
+    var days = +dayM[1];
+    var startStr = parseDateExpr(t, ctx.today) || addDaysStr(ctx.today,1);
+    var leaveType = isOD ? 'OD' : 'Absent';
+    var assumption = isOD
+      ? 'Assumption: counted as On-Duty (present).'
+      : 'Assumption: sick/medical leave counted as Absent — missed but still in the denominator. (Add it as Medical in the simulator to exclude those classes instead.)';
+    return {kind:'leave-sim', days:days, startStr:startStr, subject:subj,
+            leaveType:leaveType, threshold:threshold, assumption:assumption, raw:q};
+  }
+  /* B. "What if I take OD on <date>?" */
+  if(isOD && /(what if|if i|suppose)/.test(t)){
+    var ds = parseDateExpr(t, ctx.today);
+    if(ds) return {kind:'od-date', dateStr:ds, subject:subj, raw:q};
+  }
+  /* C. bunk / skip */
+  if(/(bunk|skip|miss)/.test(t)) return {kind:'bunk', subject:subj, threshold:threshold, raw:q};
+  /* D. must attend */
+  if(/(how many|must|need).*(attend)|attend.*(to|for).*(safe|above|stay)/.test(t))
+    return {kind:'must-attend', subject:subj, threshold:threshold, raw:q};
+  /* E. overall safety */
+  if(/(am i safe|overall|how am i|am i ok|summary)/.test(t)) return {kind:'overall', raw:q};
+  return {kind:'help', raw:q};
+}
+
+function f1(x){ return (Math.round(x*10)/10).toFixed(1); }
+function rowBySlot(calc, slot){
+  for(var i=0;i<calc.rows.length;i++) if(calc.rows[i].slot===slot) return calc.rows[i];
+  return null;
+}
+function needText(r, targetPct, danger){
+  if(r.rD.status==='nodata' && r.rT.status==='nodata') return 'enter your current % first';
+  var t = targetPct===danger ? r.rD : r.rT;
+  if(t.status==='safe') return 'Safe — you can miss all '+r.remaining+' remaining '+r.name+' classes and stay above '+targetPct+'%';
+  if(t.status==='impossible') return 'IMPOSSIBLE — even 100% attendance of the remaining '+r.remaining+' classes cannot reach '+targetPct+'% (IRREVERSIBLE DETENTION risk)';
+  return 'attend at least '+t.need+' of the remaining '+r.remaining+' '+r.name+' classes';
+}
+function detentionNote(calc){
+  var bad = calc.rows.filter(function(r){ return r.rD.status==='impossible'; });
+  if(!bad.length) return '';
+  return '\n\nDETENTION WARNING: '+bad.map(function(r){return r.name;}).join(', ')+
+    ' cannot reach '+calc.dangerPct+'% even with perfect attendance from here.';
+}
+
+function answerQuery(intent, calc, ctx){
+  var section = calc.section, danger = ctx.danger, target = ctx.target;
+  var L = [];
+  if(intent.kind==='leave-sim'){
+    var s = intent.subject;
+    if(!s) return 'Which subject? I could not match one in your question. Try e.g. "will my Chemistry drop below 75%?"';
+    var row = rowBySlot(calc, s.slot);
+    if(!row || !row.hasPct) return 'Enter your current % for '+s.name+' first, then ask me again.';
+    var endStr = fmtDate(addDays(parseDate(intent.startStr), intent.days-1));
+    var missed = missedIfAbsent(section, s.slot, intent.startStr, endStr, ctx);
+    L.push(intent.assumption);
+    L.push('Leave: '+intent.days+' day(s), '+fmtDateShort(parseDate(intent.startStr))+' to '+fmtDateShort(parseDate(endStr))+'.');
+    if(missed<=0){
+      L.push('No '+s.name+' classes fall in that window (or it is past your planning end date), so nothing changes.');
+      return L.join('\n');
+    }
+    var proj = (row.attended + row.remaining - missed)/row.total*100;
+    L.push('You would miss '+missed+' '+s.name+' class(es). Current: '+f1(row.curPct)+'% ('+row.attended+'/'+row.held+').');
+    L.push('Projected final (attending everything else): '+f1(proj)+'% — '+
+      (proj < intent.threshold ? 'YES, it drops below '+intent.threshold+'%.' : 'no, it stays above '+intent.threshold+'%.'));
+    var needAfter = required(intent.threshold, row.attended, row.total, row.remaining - missed);
+    if(needAfter.status==='impossible') L.push('After this leave, recovery to '+intent.threshold+'% becomes MATHEMATICALLY IMPOSSIBLE — IRREVERSIBLE DETENTION for '+s.name+'.');
+    else if(needAfter.status==='ok') L.push('After this leave you would need to attend '+needAfter.need+' of the remaining '+(row.remaining-missed)+' classes to stay above '+intent.threshold+'%.');
+    return L.join('\n');
+  }
+  if(intent.kind==='od-date'){
+    var dstr = intent.dateStr, d = parseDate(dstr);
+    var pretty = fmtDateShort(d);
+    if(dstr<=ctx.today) return pretty+' is not in the future — OD simulation applies to upcoming dates.';
+    if(dstr>ctx.planEnd) return pretty+' is past your planning end date ('+ctx.planEnd+').';
+    if(!isClassDay(d)) return pretty+' is not a class day (Mon–Fri only) — no effect.';
+    var parts=[], tot=0;
+    calc.rows.forEach(function(r){
+      var k = countRange(section, r.slot, dstr, dstr, ctx.subOpt);
+      if(k>0){ parts.push(r.name+': '+k+' class(es) banked as present'); tot+=k; }
+    });
+    if(!tot) return 'No classes scheduled on '+pretty+'.';
+    return 'Taking OD on '+pretty+' banks '+tot+' class(es) as present:\n'+parts.join('\n')+
+      '\nOD classes are removed from "remaining" and added to attended+held, so your required counts drop accordingly. Add it in the leave simulator to lock it in.';
+  }
+  if(intent.kind==='bunk' || intent.kind==='must-attend'){
+    var s2 = intent.subject;
+    if(!s2){
+      if(intent.kind==='bunk' && calc.summary.overall!==null){
+        return 'Overall you are at '+f1(calc.summary.overall)+'%. Tell me a subject for an exact bunk count, e.g. "How many classes can I skip in Chemistry?"';
+      }
+      return 'Which subject? e.g. "How many classes can I skip in Chemistry?"';
+    }
+    var r2 = rowBySlot(calc, s2.slot);
+    if(!r2 || !r2.hasPct) return 'Enter your current % for '+s2.name+' first, then ask me again.';
+    var th = intent.threshold;
+    var req = th===danger ? r2.rD : (th===target ? r2.rT : required(th, r2.attended, r2.total, r2.remaining));
+    var ans;
+    if(intent.kind==='bunk'){
+      var skipD = r2.rD.status==='safe' ? r2.remaining : (r2.rD.status==='ok' ? r2.remaining - r2.rD.need : 0);
+      var skipT = r2.rT.status==='safe' ? r2.remaining : (r2.rT.status==='ok' ? r2.remaining - r2.rT.need : 0);
+      ans = 'In '+r2.name+' (now '+f1(r2.curPct)+'%, '+r2.remaining+' classes left):\n'+
+        '- To stay above '+danger+'%: you can skip at most '+skipD+' class(es).'+
+        (r2.rD.status==='impossible' ? ' (Recovery already impossible — attend everything.)' : '')+'\n'+
+        '- To stay above '+target+'%: you can skip at most '+skipT+' class(es).';
+    } else {
+      ans = 'In '+r2.name+' (now '+f1(r2.curPct)+'%, '+r2.remaining+' classes left): '+needText(r2, th, danger)+'.';
+    }
+    return ans + detentionNote(calc);
+  }
+  if(intent.kind==='overall'){
+    var sm = calc.summary;
+    if(sm.entered===0) return 'Enter your current % for at least one subject and I will assess your safety.';
+    var o = 'Overall attendance: '+(sm.overall===null?'n/a':f1(sm.overall)+'%')+' across '+sm.entered+' subject(s). '+
+      sm.totalRemaining+' classes remain in the semester.';
+    var low = calc.rows.filter(function(r){ return r.hasPct && r.curPct!==null && r.curPct<danger; });
+    o += low.length ? '\nBelow '+danger+'% right now: '+low.map(function(r){return r.name+' ('+f1(r.curPct)+'%)';}).join(', ')+'.'
+                    : '\nNo subject is currently below '+danger+'%.';
+    o += sm.irreversible ? '\nIRREVERSIBLE: '+sm.irreversible+' subject(s) cannot recover — see the red banner.'
+                         : '\nEvery subject can still recover with enough attendance.';
+    return o;
+  }
+  return 'I can help with things like:\n'+
+    '- "If I take a 3-day sick leave starting tomorrow, will my Chemistry drop below 75%?"\n'+
+    '- "How many classes can I skip in Physics?"\n'+
+    '- "How many must I attend in Maths to stay above 75%?"\n'+
+    '- "What if I take OD on next Monday?"\n'+
+    '- "Am I safe overall?"';
+}
+
+/* ============================================================
+   SELF TESTS — ?selftest=1 renders results; node harness calls runSelfTests().
+   ============================================================ */
+function runSelfTests(){
+  var T = [];
+  function t(name, cond, detail){ T.push({name:name, pass:!!cond, detail:detail||''}); }
+
+  /* Synthetic single-subject section: A has 2 periods every Monday, nothing else. */
+  var SYN = {id:'TEST', label:'Test Section',
+    subjects:[{slot:'A',code:'T101',name:'Test Subject'}],
+    week:{Monday:['A','A',null,null,null,null,null,null,null],
+          Tuesday:[null,null,null,null,null,null,null,null,null],
+          Wednesday:[null,null,null,null,null,null,null,null,null],
+          Thursday:[null,null,null,null,null,null,null,null,null],
+          Friday:[null,null,null,null,null,null,null,null,null]}};
+
+  /* 1. countRange counts Mon–Fri only: a full Mon–Sun week has exactly 2 A's. */
+  var mon = parseDate('2026-10-05'); /* find the Monday on/after this date */
+  while(mon.getDay()!==1) mon = addDays(mon,1);
+  var monS = fmtDate(mon), sunS = fmtDate(addDays(mon,6));
+  t('countRange: one full week = 2 classes', countRange(SYN,'A',monS,sunS,0)===2,
+    'got '+countRange(SYN,'A',monS,sunS,0));
+  /* 2. weekends contribute nothing */
+  var satS = fmtDate(addDays(mon,5)), sun2 = fmtDate(addDays(mon,6));
+  t('countRange: Sat–Sun = 0', countRange(SYN,'A',satS,sun2,0)===0, '');
+  /* 3. reversed range = 0 */
+  t('countRange: reversed range = 0', countRange(SYN,'A',sunS,monS,0)===0, '');
+
+  /* 4-5. split-cell resolution */
+  t('resolveCell F/G -> F (ECE-B)', resolveCell('F/G','I-ECE-B-EEE',0)==='F', '');
+  t('resolveCell F/G -> G (EEE)', resolveCell('F/G','I-ECE-B-EEE',1)==='G', '');
+  t('resolveCell C/G -> G (Biomed)', resolveCell('C/G','I-BIOTECH-B-BME',1)==='G', '');
+  t('resolveCell leaves normal slots alone', resolveCell('A','I-ECE-B-EEE',1)==='A' && resolveCell(null,'X',0)===null, '');
+  t('hiddenSlots ECE-B hides G,F/G',
+    JSON.stringify(hiddenSlots('I-ECE-B-EEE',0))===JSON.stringify(['G','F/G']), '');
+
+  /* 6-8. required() edge cases */
+  var r1 = required(75, 30, 40, 10);
+  t('required: safe when need<=0', r1.status==='safe' && r1.need===0, JSON.stringify(r1));
+  var r2 = required(75, 20, 40, 10);
+  t('required: exact boundary need==remaining', r2.status==='ok' && r2.need===10, JSON.stringify(r2));
+  var r3 = required(75, 10, 40, 10);
+  t('required: impossible when need>remaining', r3.status==='impossible' && r3.need===20, JSON.stringify(r3));
+  var r4 = required(75, 0, 0, 0);
+  t('required: nodata when total=0', r4.status==='nodata', '');
+
+  /* 9. calcSubject exact math on SYN: pct=50 over 1 week held=2 -> attended=1;
+        1 week remaining=2; danger 75 -> total 4, need=ceil(3-1)=2 */
+  var o9 = {pct:50, semStart:monS, today:sunS, planEnd:fmtDate(addDays(mon,13)),
+            danger:75, target:90, subOpt:0, leaves:[]};
+  var c9 = calcSubject(SYN,'A',o9);
+  t('calcSubject: held/attended/remaining', c9.held===2 && c9.attended===1 && c9.remaining===2,
+    'held='+c9.held+' attended='+c9.attended+' remaining='+c9.remaining);
+  t('calcSubject: need danger=2 of 2', c9.rD.status==='ok' && c9.rD.need===2, JSON.stringify(c9.rD));
+
+  /* 10. Medical leave in the past removes classes from held. */
+  var o10 = {pct:100, semStart:monS, today:sunS, planEnd:fmtDate(addDays(mon,13)),
+             danger:75, target:90, subOpt:0,
+             leaves:[{from:monS,to:monS,type:'Medical'}]};
+  var c10 = calcSubject(SYN,'A',o10);
+  t('Medical leave removes past classes from held', c10.held===0 && c10.attended===0,
+    'held='+c10.held);
+
+  /* 11. Future OD banks classes: held+attended up, remaining down. */
+  var futMon = fmtDate(addDays(mon,7));
+  var o11 = {pct:50, semStart:monS, today:sunS, planEnd:fmtDate(addDays(mon,13)),
+             danger:75, target:90, subOpt:0,
+             leaves:[{from:futMon,to:futMon,type:'OD'}]};
+  var c11 = calcSubject(SYN,'A',o11);
+  t('OD banks future classes (held+2, attended+2, remaining-2)',
+    c11.held===4 && c11.attended===3 && c11.remaining===0,
+    'held='+c11.held+' attended='+c11.attended+' remaining='+c11.remaining);
+
+  /* 12. Chatbot parses the flagship query. */
+  var secE = getSection('I-ECE-A');
+  var ctx = {section:secE, subOpt:0, danger:75, target:90, today:'2026-09-28',
+             semStart:'2026-07-13', planEnd:'2026-11-27', pctBySlot:{}, leaves:[]};
+  var pq = parseQuery('If I take a 3-day sick leave starting tomorrow, will my Chemistry drop below 75%?', ctx);
+  t('parseQuery: leave-sim intent', pq.kind==='leave-sim' && pq.days===3 &&
+    pq.leaveType==='Absent' && pq.threshold===75 && pq.startStr==='2026-09-29',
+    JSON.stringify({kind:pq.kind,days:pq.days,leaveType:pq.leaveType,threshold:pq.threshold,startStr:pq.startStr}));
+  t('parseQuery: subject matched = Chemistry slot B',
+    !!pq.subject && pq.subject.slot==='B', 'slot='+(pq.subject&&pq.subject.slot));
+
+  /* 13. findSubject fuzzy matching */
+  var secB = getSection('II-BME');
+  var fs = findSubject(secB, 'will my digital logic drop', 0);
+  t('findSubject fuzzy "digital logic" -> slot D', !!fs && fs.slot==='D', 'slot='+(fs&&fs.slot));
+
+  /* 14. projectLeave with an Absent leave lowers the projected final %. */
+  var o14 = {pct:50, semStart:monS, today:sunS, planEnd:fmtDate(addDays(mon,13)),
+             danger:75, target:90, subOpt:0, pctBySlot:{A:50}, leaves:[]};
+  var base = calcAll('TEST', o14); /* 'TEST' not in TIMETABLES -> null; use SYN via direct calc */
+  t('calcAll returns null for unknown section', base===null, '');
+  var proj = projectLeave('I-ECE-A', {pctBySlot:{B:80}, semStart:'2026-07-13', today:'2026-09-28',
+    planEnd:'2026-11-27', danger:75, target:90, subOpt:0, leaves:[]},
+    {from:'2026-09-29', to:'2026-10-01', type:'Absent'});
+  var brow = rowBySlot(proj,'B');
+  t('projectLeave appends leave without crashing', !!brow && brow.remaining>=0, '');
+
+  /* 15. detention detection: very low pct, few classes left -> impossible */
+  var o15 = {pct:10, semStart:monS, today:sunS, planEnd:fmtDate(addDays(mon,13)),
+             danger:75, target:90, subOpt:0, leaves:[]};
+  var c15 = calcSubject(SYN,'A',o15);
+  t('detention: 10% with 2 held / 2 remaining is impossible',
+    c15.rD.status==='impossible', JSON.stringify(c15.rD));
+
+  /* 16. parseDateExpr handles weekday + ISO */
+  t('parseDateExpr "next monday" from 2026-09-28', parseDateExpr('next Monday','2026-09-28')==='2026-10-05',
+    parseDateExpr('next Monday','2026-09-28'));
+  t('parseDateExpr ISO', parseDateExpr('on 2026-10-05','2026-09-28')==='2026-10-05', '');
+
+  return T;
+}
+
+/* ============================================================
+   UI — DOM only below this line.
+   ============================================================ */
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function $(id){ return document.getElementById(id); }
+
+var LS_PREFIX = 'attendguard:v1:';
+function lsGet(k){ try{ var v=localStorage.getItem(LS_PREFIX+k); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(LS_PREFIX+k, JSON.stringify(v)); }catch(e){} }
+
+var state = {
+  sectionId:null, subOpt:0, semStart:'2026-07-13', planEnd:'2026-11-27',
+  danger:75, target:90, pctBySlot:{}, leaves:[]
+};
+
+function saveState(){
+  if(!state.sectionId) return;
+  lsSet('sec:'+state.sectionId, {subOpt:state.subOpt, semStart:state.semStart, planEnd:state.planEnd,
+    danger:state.danger, target:state.target, pctBySlot:state.pctBySlot, leaves:state.leaves});
+  lsSet('lastSection', state.sectionId);
+}
+function loadState(sectionId){
+  var d = lsGet('sec:'+sectionId) || {};
+  state.sectionId = sectionId;
+  state.subOpt = d.subOpt===1?1:0;
+  state.semStart = d.semStart || '2026-07-13';
+  state.planEnd = d.planEnd || '2026-11-27';
+  state.danger = (d.danger===undefined||d.danger===null||d.danger==='') ? 75 : +d.danger;
+  state.target = (d.target===undefined||d.target===null||d.target==='') ? 90 : +d.target;
+  state.pctBySlot = d.pctBySlot || {};
+  state.leaves = d.leaves || [];
+}
+function ctxOf(){
+  var section = getSection(state.sectionId);
+  return {section:section, subOpt:state.subOpt, danger:state.danger, target:state.target,
+    today:todayStr(), semStart:state.semStart, planEnd:state.planEnd,
+    pctBySlot:state.pctBySlot, leaves:state.leaves};
+}
+function calcNow(){
+  var c = ctxOf();
+  return calcAll(state.sectionId, {pctBySlot:c.pctBySlot, semStart:c.semStart, today:c.today,
+    planEnd:c.planEnd, danger:c.danger, target:c.target, subOpt:c.subOpt, leaves:c.leaves});
+}
+
+function needCell(r, req){
+  if(!r.hasPct) return '<span class="pill na">&mdash;</span>';
+  if(req.status==='safe') return '<span class="pill safe">Safe &mdash; miss all</span>';
+  if(req.status==='impossible') return '<span class="pill impossible">IMPOSSIBLE</span>';
+  if(req.status==='ok') return '<span class="pill ok">Attend &ge; '+req.need+' of '+r.remaining+'</span>';
+  return '<span class="pill na">&mdash;</span>';
+}
+
+function renderSetup(){
+  var sel = $('secSel');
+  if(!sel.options.length){
+    TIMETABLES.sections.forEach(function(s){
+      var o=document.createElement('option'); o.value=s.id; o.textContent=s.label; sel.appendChild(o);
+    });
+  }
+  sel.value = state.sectionId;
+  var labels = SUBOPT_LABELS[state.sectionId];
+  var wrap = $('subOptField'), seg = $('subOptSeg');
+  if(labels){
+    wrap.classList.remove('hidden'); seg.innerHTML='';
+    labels.forEach(function(lab, i){
+      var b=document.createElement('button'); b.type='button'; b.textContent=lab;
+      if(i===state.subOpt) b.classList.add('active');
+      b.onclick=function(){ state.subOpt=i; saveState(); syncSetupInputs(); renderAll(); };
+      seg.appendChild(b);
+    });
+  } else { wrap.classList.add('hidden'); }
+  syncSetupInputs();
+}
+function syncSetupInputs(){
+  $('semStart').value = state.semStart;
+  $('planEnd').value = state.planEnd;
+  $('todayTxt').value = fmtDateShort(new Date())+' ('+todayStr()+')';
+  $('dangerIn').value = state.danger;
+  $('targetIn').value = state.target;
+  $('needDH').innerHTML = 'Need (&ge;'+esc(state.danger)+'%)';
+  $('needTH').innerHTML = 'Need (&ge;'+esc(state.target)+'%)';
+}
+
+function renderStats(calc){
+  var sm = calc.summary;
+  var ov = $('statOverall');
+  if(sm.overall===null){ ov.textContent='—'; ov.className='v'; $('statOverallS').textContent='enter current % below'; }
+  else{
+    ov.textContent = f1(sm.overall)+'%'; $('statOverallS').textContent = sm.attended+' of '+sm.held+' classes attended';
+    ov.className = 'v '+(sm.overall>=state.target?'good':(sm.overall>=state.danger?'warnv':'bad'));
+  }
+  $('statRemaining').textContent = sm.totalRemaining;
+  var b=$('statBelow'); b.textContent=sm.belowDanger; b.className='v '+(sm.belowDanger===0?'good':'bad');
+  var ir=$('statIrrev'); ir.textContent=sm.irreversible; ir.className='v '+(sm.irreversible===0?'good':'bad');
+}
+
+function renderBanner(calc){
+  var bad = calc.rows.filter(function(r){ return r.rD.status==='impossible'; });
+  var bn = $('detentionBanner');
+  if(!bad.length){ bn.classList.add('hidden'); bn.innerHTML=''; return; }
+  bn.classList.remove('hidden');
+  bn.innerHTML = '<h2>IRREVERSIBLE DETENTION</h2>'+
+    '<div>The following subject(s) <b>cannot</b> reach '+esc(state.danger)+'% even with 100% attendance in all remaining classes. Recovery is mathematically impossible before '+esc(state.planEnd)+'.</div>'+
+    '<ul>'+bad.map(function(r){
+      return '<li><b>'+esc(r.name)+'</b> ('+esc(r.code)+') — now '+f1(r.curPct)+'%, needs '+r.rD.need+' more but only '+r.remaining+' classes remain</li>';
+    }).join('')+'</ul>';
+}
+
+function renderTable(calc){
+  var tb = $('subjBody'); tb.innerHTML='';
+  calc.rows.forEach(function(r){
+    var tr = document.createElement('tr');
+    if(r.hasPct && r.curPct!==null && r.curPct<state.danger) tr.className='rowdanger';
+    var pctVal = state.pctBySlot[r.slot];
+    tr.innerHTML =
+      '<td><b>'+esc(r.name)+'</b></td><td>'+esc(r.code)+'</td><td>'+esc(r.slot)+'</td><td>'+r.perWeek+'</td>'+
+      '<td><input class="pctin" type="number" min="0" max="100" step="0.1" data-slot="'+esc(r.slot)+'" value="'+esc(pctVal===undefined?'':pctVal)+'" placeholder="%"> </td>'+
+      '<td>'+r.held+'</td><td>'+(r.hasPct?r.attended:'—')+'</td><td>'+r.remaining+'</td>'+
+      '<td>'+needCell(r,r.rD)+'</td><td>'+needCell(r,r.rT)+'</td>';
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('.pctin').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      var v = inp.value.trim();
+      if(v===''||v===null) delete state.pctBySlot[inp.getAttribute('data-slot')];
+      else state.pctBySlot[inp.getAttribute('data-slot')] = v;
+      saveState(); renderAll();
+    });
+  });
+}
+
+function renderCharts(calc){
+  var sb = $('subjectBars'); sb.innerHTML='';
+  calc.rows.forEach(function(r){
+    var pct = r.hasPct && r.curPct!==null ? r.curPct : 0;
+    var cls = !r.hasPct ? '' : (r.curPct<state.danger?'low':(r.curPct<state.target?'mid':''));
+    var row = document.createElement('div'); row.className='bar-row';
+    row.innerHTML =
+      '<div>'+esc(r.name)+' <span style="color:var(--muted)">('+esc(r.slot)+')</span></div>'+
+      '<div class="bar-track"><div class="bar-fill '+cls+'" style="width:'+Math.min(100,pct)+'%"></div>'+
+      '<div class="bar-mark" style="left:'+state.danger+'%"><span>'+state.danger+'</span></div>'+
+      '<div class="bar-mark" style="left:'+state.target+'%"><span>'+state.target+'</span></div></div>'+
+      '<div><b>'+(r.hasPct&&r.curPct!==null?f1(r.curPct)+'%':'—')+'</b></div>';
+    sb.appendChild(row);
+  });
+  /* donut */
+  var dw = $('donutWrap'), sm = calc.summary;
+  var p = sm.overall===null?0:sm.overall, C = 2*Math.PI*54;
+  var col = p>=state.target?'#067647':(p>=state.danger?'#dc6803':'#d92d20');
+  dw.innerHTML =
+    '<svg width="150" height="150" viewBox="0 0 150 150">'+
+    '<circle cx="75" cy="75" r="54" fill="none" stroke="#eef1f7" stroke-width="16"/>'+
+    '<circle cx="75" cy="75" r="54" fill="none" stroke="'+col+'" stroke-width="16" stroke-linecap="round"'+
+    ' stroke-dasharray="'+(C*Math.min(100,p)/100).toFixed(1)+' '+C.toFixed(1)+'" transform="rotate(-90 75 75)"/>'+
+    '<text x="75" y="72" text-anchor="middle" font-size="24" font-weight="700" fill="#1b2436">'+(sm.overall===null?'—':f1(sm.overall)+'%')+'</text>'+
+    '<text x="75" y="92" text-anchor="middle" font-size="11" fill="#5d6b84">overall</text></svg>'+
+    '<div class="donut-label">attended '+sm.attended+' of '+sm.held+' held classes</div>';
+  /* remaining bars */
+  var rb = $('remainBars'); rb.innerHTML='';
+  var maxR = 1;
+  calc.rows.forEach(function(r){ if(r.remaining>maxR) maxR=r.remaining; });
+  calc.rows.forEach(function(r){
+    var row2 = document.createElement('div'); row2.className='bar-row';
+    row2.innerHTML =
+      '<div>'+esc(r.name)+' <span style="color:var(--muted)">('+esc(r.slot)+')</span></div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+(r.remaining/maxR*100)+'%"></div></div>'+
+      '<div><b>'+r.remaining+'</b></div>';
+    rb.appendChild(row2);
+  });
+}
+
+function renderLeaves(){
+  var list = $('lvList'); list.innerHTML='';
+  if(!state.leaves.length){ list.innerHTML='<p class="hint">No leaves added yet.</p>'; return; }
+  state.leaves.forEach(function(L, idx){
+    var d = document.createElement('div'); d.className='lv-item';
+    var a=parseDate(L.from), b=parseDate(L.to);
+    d.innerHTML = '<span class="badge '+esc(L.type)+'">'+esc(L.type)+'</span>'+
+      '<span class="grow"><b>'+fmtDateShort(a)+' &ndash; '+fmtDateShort(b)+'</b> <span class="hint">('+esc(L.from)+' to '+esc(L.to)+')</span></span>';
+    var del = document.createElement('button'); del.className='btn danger'; del.textContent='Delete';
+    del.onclick=function(){ state.leaves.splice(idx,1); saveState(); renderAll(); };
+    d.appendChild(del); list.appendChild(d);
+  });
+}
+
+function renderAll(){
+  var calc = calcNow();
+  renderStats(calc); renderBanner(calc); renderTable(calc); renderCharts(calc); renderLeaves();
+}
+
+/* ---------- chat ---------- */
+var chatOpened = false;
+function addMsg(text, who){
+  var m = document.createElement('div'); m.className='msg '+who; m.textContent=text;
+  $('chatMsgs').appendChild(m); $('chatMsgs').scrollTop = $('chatMsgs').scrollHeight;
+}
+function botReply(q){
+  var ctx = ctxOf();
+  var calc = calcNow();
+  var intent = parseQuery(q, ctx);
+  return answerQuery(intent, calc, ctx);
+}
+function sendChat(){
+  var inp = $('chatInput'), q = inp.value.trim();
+  if(!q) return;
+  addMsg(q,'user'); inp.value='';
+  addMsg(botReply(q),'bot');
+}
+function toggleChat(force){
+  var p = $('chatPanel');
+  var show = force!==undefined ? force : p.classList.contains('hidden');
+  p.classList.toggle('hidden', !show);
+  if(show && !chatOpened){
+    chatOpened = true;
+    addMsg('Hi! I am your Attendance Advisor. Ask me things like:\n"If I take a 3-day sick leave starting tomorrow, will my Chemistry drop below 75%?"\n"How many classes can I skip in Physics?"\n"What if I take OD on next Monday?"','bot');
+  }
+  if(show) setTimeout(function(){ $('chatInput').focus(); },50);
+}
+
+function wire(){
+  $('secSel').addEventListener('change', function(){
+    loadState(this.value); saveState(); renderSetup(); renderAll();
+  });
+  ['semStart','planEnd'].forEach(function(id){
+    $(id).addEventListener('change', function(){
+      state[id==='semStart'?'semStart':'planEnd'] = this.value || state[id==='semStart'?'semStart':'planEnd'];
+      saveState(); renderAll();
+    });
+  });
+  $('dangerIn').addEventListener('input', function(){
+    if(this.value===''||+this.value<0||+this.value>100) return;
+    state.danger=+this.value; saveState(); renderAll();
+  });
+  $('targetIn').addEventListener('input', function(){
+    if(this.value===''||+this.value<0||+this.value>100) return;
+    state.target=+this.value; saveState(); renderAll();
+  });
+  $('lvAdd').addEventListener('click', function(){
+    var f=$('lvFrom').value, t=$('lvTo').value, ty=$('lvType').value;
+    if(!f||!t){ alert('Pick both from and to dates.'); return; }
+    if(t<f){ alert('The "to" date cannot be before the "from" date.'); return; }
+    state.leaves.push({from:f,to:t,type:ty});
+    state.leaves.sort(function(a,b){ return a.from<b.from?-1:1; });
+    $('lvFrom').value=''; $('lvTo').value='';
+    saveState(); renderAll();
+  });
+  $('chatFab').addEventListener('click', function(){ toggleChat(); });
+  $('chatSend').addEventListener('click', sendChat);
+  $('chatInput').addEventListener('keydown', function(e){ if(e.key==='Enter') sendChat(); });
+}
+
+function renderSelfTest(){
+  var res = runSelfTests();
+  var pass = res.filter(function(r){return r.pass;}).length;
+  $('app').classList.add('hidden'); $('chatFab').classList.add('hidden');
+  var el = $('selftest'); el.classList.remove('hidden');
+  el.innerHTML = '<h2>AttendGuard self-test: <span class="'+(pass===res.length?'tpass':'tfail')+'">'+
+    pass+'/'+res.length+' passed</span></h2>' +
+    res.map(function(r){
+      return '<div class="st-row"><span class="'+(r.pass?'tpass':'tfail')+'">'+(r.pass?'PASS':'FAIL')+
+        '</span> — '+esc(r.name)+(r.detail?' <span style="color:var(--muted)">'+esc(r.detail)+'</span>':'')+'</div>';
+    }).join('');
+}
+
+function init(){
+  if(typeof location!=='undefined' && /[?&]selftest=1/.test(location.search)){ renderSelfTest(); return; }
+  var secs = TIMETABLES.sections||[];
+  var last = lsGet('lastSection');
+  var first = (last && getSection(last)) ? last : (secs.length?secs[0].id:null);
+  loadState(first);
+  renderSetup(); wire(); renderAll();
+}
+
+var G = typeof window!=='undefined' ? window : globalThis;
+G.__att = {
+  TIMETABLES: (typeof TIMETABLES!=='undefined'?TIMETABLES:null),
+  parseDate:parseDate, fmtDate:fmtDate, fmtDateShort:fmtDateShort, addDays:addDays, addDaysStr:addDaysStr,
+  isClassDay:isClassDay, todayStr:todayStr,
+  resolveCell:resolveCell, hiddenSlots:hiddenSlots, getSection:getSection,
+  visibleSubjects:visibleSubjects, classesPerWeek:classesPerWeek, countRange:countRange,
+  leavePeriodsOn:leavePeriodsOn, required:required,
+  calcSubject:calcSubject, calcAll:calcAll, projectLeave:projectLeave, missedIfAbsent:missedIfAbsent,
+  findSubject:findSubject, parseDateExpr:parseDateExpr, parseQuery:parseQuery, answerQuery:answerQuery,
+  runSelfTests:runSelfTests
+};
+
+if(typeof document!=='undefined'){
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+}
+</script>
+</body>
+</html>
